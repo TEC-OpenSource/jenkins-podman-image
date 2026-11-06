@@ -4,7 +4,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=3
 
 [Container]
-Image=localhost/jenkins-25:2.580.2-2-amd64
+Image=localhost/jenkins-25:2.580.2-3-amd64
 Pull=never
 ContainerName=jenkins-25
 User=jenkins:jenkins

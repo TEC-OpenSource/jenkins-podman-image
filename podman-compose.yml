@@ -1,7 +1,7 @@
 services:
   jenkins:
     # An imported, versioned local tag. There is deliberately no build section.
-    image: ${JENKINS_IMAGE:-localhost/jenkins-25:2.580.2-2-amd64}
+    image: ${JENKINS_IMAGE:-localhost/jenkins-25:2.580.2-3-amd64}
     pull_policy: never
     container_name: jenkins-25
     user: "jenkins:jenkins"

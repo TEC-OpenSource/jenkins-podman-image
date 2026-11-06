@@ -24,7 +24,7 @@ class ResetTests(unittest.TestCase):
         self.plugins.mkdir()
         (self.home / 'config.xml').write_text('original auth and settings')
         (self.plugins / 'example.jpi').write_text('original plugin')
-        (self.root / 'env').write_text('original env')
+        (self.root / 'env.conf').write_text('original env')
         (self.root / 'ssl').mkdir()
         (self.root / 'ssl/key').write_text('original ssl')
         self.calls = []
@@ -53,7 +53,7 @@ class ResetTests(unittest.TestCase):
         backup = next(self.root.glob('jenkins_home.backup-*'))
         self.assertEqual((backup / 'config.xml').read_text(), 'original auth and settings')
         self.assertEqual((next(self.root.glob('plugins.backup-*')) / 'example.jpi').read_text(), 'original plugin')
-        self.assertEqual((self.root / 'env').read_text(), 'original env')
+        self.assertEqual((self.root / 'env.conf').read_text(), 'original env')
         self.assertEqual((self.root / 'ssl/key').read_text(), 'original ssl')
 
     def test_nested_plugins_are_backed_up_with_home(self):

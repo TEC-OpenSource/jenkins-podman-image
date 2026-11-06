@@ -18,8 +18,8 @@ podman machine start
 ```
 
 ```sh
-podman build --platform linux/amd64 --format oci -f Containerfile -t localhost/jenkins-25:2.580.2-2-amd64 .
-podman image inspect --format '{{.Os}}/{{.Architecture}}' localhost/jenkins-25:2.580.2-2-amd64
+podman build --platform linux/amd64 --format oci -f Containerfile -t localhost/jenkins-25:2.580.2-3-amd64 .
+podman image inspect --format '{{.Os}}/{{.Architecture}}' localhost/jenkins-25:2.580.2-3-amd64
 ```
 
 플랫폼 출력은 `linux/amd64`여야 합니다. Jenkins/JDK 버전은 `Containerfile`의 FROM 태그와 digest를 변경하고, 새 이미지 태그로 구분합니다. 플러그인 추가에는 이미지 재빌드가 필요하지 않습니다.
@@ -29,7 +29,7 @@ podman image inspect --format '{{.Os}}/{{.Architecture}}' localhost/jenkins-25:2
 빌드한 로컬 이미지를 지정합니다. 이 명령이 이미지 저장과 배포 tar 생성을 수행합니다.
 
 ```sh
-python3 scripts/package-deploy.py --image localhost/jenkins-25:2.580.2-2-amd64
+python3 scripts/package-deploy.py --image localhost/jenkins-25:2.580.2-3-amd64
 ```
 
 생성되는 두 파일을 함께 내부망 서버에 반입합니다.
@@ -39,7 +39,7 @@ dist/jenkins-podman-jdk25.tar
 dist/jenkins-podman-jdk25.tar.sha256
 ```
 
-패키지에는 이미지, Compose 설정, `env.example`, 빈 데이터·플러그인·SSL 폴더와 운영 안내 `README.txt`가 포함됩니다. 운영 데이터와 개인 인증서/키는 포함하지 않습니다. 내부망에서의 이미지 로드, 기동·종료, 설정 방법은 압축을 푼 뒤 `README.txt`를 따릅니다.
+패키지에는 이미지, Compose 설정, `env.conf.example`, 빈 데이터·플러그인·SSL 폴더와 운영 안내 `README.txt`가 포함됩니다. 운영 데이터와 개인 인증서/키는 포함하지 않습니다. 내부망에서의 이미지 로드, 기동·종료, 설정 방법은 압축을 푼 뒤 `README.txt`를 따릅니다.
 
 운영 안내 원본은 [deployment/README.offline.txt.in](deployment/README.offline.txt.in), 검증 결과는 [docs/VALIDATION.md](docs/VALIDATION.md)에 있습니다.
 

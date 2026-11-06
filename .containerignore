@@ -5,3 +5,5 @@
 !deployment/offline/update-center.json
 !deployment/offline/platform-plugins.json
 !deployment/offline/hudson.model.UpdateCenter.xml
+!deployment/init.groovy.d/
+!deployment/init.groovy.d/20-initial-setup-routing.groovy

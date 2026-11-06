@@ -12,7 +12,7 @@
 | amd64 빌드 | ARM Mac에서 --platform linux/amd64 빌드 성공. inspect에서 linux/amd64, 에뮬레이션에서 x86_64/JDK 25 실행 확인 |
 | 배포 패키지 | 실제 tar 압축 해제, 외부/내부 체크섬, HTTP/HTTPS Compose config, 추출 이미지 load 및 ID/플랫폼 확인 |
 | 패키지 제외 | 운영 env/.env·데이터·플러그인·SSL 비밀 제외. 빈 데이터/플러그인 폴더와 SSL 설정 예제만 포함 |
-| 자동 검사 | 플러그인 준비·패키징·수동 초기화 단위 검사 20개 통과. git diff --check 및 Git 제외 규칙 확인 |
+| 자동 검사 | 플러그인 준비·패키징·수동 초기화 단위 검사 21개 통과. 초기 설정 HTTP 회귀 검사는 별도 실행하여 통과 |
 
 시험 환경은 Podman 6.1.4, podman-compose 1.5.0, ARM Mac 위 rootless Linux VM입니다. 기존 운영 데이터는 사용하지 않았습니다. ARM에서의 에뮬레이션 성공을 실제 x86 운영 서버의 인수시험 완료로 간주하지 않습니다.
 
@@ -45,3 +45,24 @@ HTTP/HTTPS의 기본 호스트 바인딩을 `0.0.0.0`으로 변경했습니다. 
 운영 서버의 ExitCode 143/SIGTERM은 이 시험에서 플러그인 화면 접근으로 재현되지 않았습니다. 운영 서버에서 누가 종료 신호를 보냈는지는 확인되지 않았으며, Podman events와 systemd 등 서비스 관리자 로그 확인이 남아 있습니다. Setup Wizard의 인터넷 연결 검사나 수동 다운로드 요청까지 성공했다고 간주하지 않습니다. 기존 홈의 외부 Update Site URL은 자동으로 덮어쓰지 않으므로 README.txt의 수동 변경 절차를 적용해야 합니다.
 
 기존 `.env`는 값을 보존해 `env`로 이름을 바꿉니다. 기존 env의 이미지 태그와 JAVA_OPTS는 자동 변경되지 않습니다. 일반 재시작에는 초기화 도구를 실행하지 않습니다.
+
+## 초기 로그인 이동과 env.conf 변경
+
+이미지 `localhost/jenkins-25:2.580.2-3-amd64`를 빌드하고 배포 tar를 다시 생성했습니다. ID는 `d434b26dc451a5e2dbbaebfa5e88024a30724e0b9b82198df87b8c11a2cc55c3`입니다. 설정 파일은 `env.conf`, 예제는 `env.conf.example`이며 이전 env/.env의 값과 데이터 경로를 유지하여 이름만 변경합니다.
+
+- 기존 이미지에서 `/login?from=/manage/appearance/`로 초기 암호를 입력하면 Appearance 화면으로 이동하고 초기 설정 컨테이너가 없는 응답이 반환되는 것을 재현했습니다. Jenkins Core는 로그인 전의 from 주소를 사용하고 초기 설정 강제 처리는 기본 주소에만 적용합니다.
+- 초기 설정이 끝나기 전 관리 화면의 브라우저 GET 요청을 `/setupWizard/`로 보내는 필터를 추가했습니다. 초기화 Groovy는 요청 필터를 등록하며 인증 Realm/AuthorizationStrategy, 사용자/Job/Agent XML과 설치 완료 플래그를 수정하지 않습니다. 설치 완료 후에는 기존 요청을 그대로 통과시킵니다.
+- 실제 브라우저에서 Appearance 복귀 주소로 로그인한 뒤 새로고침 없이 초기 설정 화면에 진입했습니다. 플러그인 0개 설치 → 관리자 생성 화면 → 시험용 기본 admin 유지 → URL 저장 → Dashboard → 관리/Appearance 접근과 새로고침까지 확인했습니다. 새 관리자 계정 생성 자체는 이번 브라우저 시험에서 수행하지 않았습니다.
+- HTTP 회귀 검사에서 기본 주소/관리/Appearance 로그인, 일반 API와 비 HTML 요청 유지, 익명 API 403을 확인했습니다. 초기 설정 완료 전·후와 컨테이너 재생성 후에 각각 실행했습니다. `/jenkins` 하위 경로를 쓰는 별도 새 홈에서도 통과했습니다. 시험 컨테이너는 외부 통신이 없는 Podman 내부 네트워크를 사용했습니다.
+- 컨테이너 재생성 전후 설정/사용자/설치 완료 기록 4개 파일의 SHA-256이 같았습니다. 운영 데이터와 업무 플러그인 소스는 사용하거나 변경하지 않았습니다.
+- Compose 1.5.0에서 `--env-file env.conf`로 HTTP/HTTPS 설정이 해석됐습니다. 새 tar의 예제 파일명, 명령어 들여쓰기, 운영 설정 제외와 외부/전체 내부 체크섬을 확인했고 실제 OCI load 후 ID와 linux/amd64 플랫폼이 일치했습니다.
+
+일반 단위 검사 실행은 21개 통과, 실행 환경이 필요한 HTTP 검사 1개 건너뜀입니다. HTTP 검사는 별도로 아래 환경변수를 지정해 실행했습니다. 완료 이후 검사는 `JENKINS_SETUP_TEST_COMPLETE=1`도 지정합니다. 새로 만든 시험 Jenkins에만 사용합니다.
+
+```sh
+JENKINS_SETUP_TEST_URL=http://127.0.0.1:18090 \
+JENKINS_SETUP_TEST_PASSWORD_FILE=reports/setup-redirect-after/jenkins_home/secrets/initialAdminPassword \
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p test_setup_routing.py -v
+```
+
+플러그인 선택 화면에서 기존 Core 번들의 scrollspy 관련 `a.isWindow is not a function` 콘솔 오류도 관찰됐으나 플러그인 0개 선택과 초기 설정 완료는 진행됐습니다. 이 콘솔 오류의 Core 프런트엔드 호환성 확인과 실제 x86 운영 서버의 인수시험은 남아 있습니다.

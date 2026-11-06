@@ -72,8 +72,8 @@ def reset(root, confirmed=False):
         for source, target in reversed(moved):
             target.rename(source)
         raise
-    print('Reset complete. Backups, env, SSL certificates and Podman secrets are retained.')
-    print('Start Jenkins with the same Compose files and --env-file env to run initial setup.')
+    print('Reset complete. Backups, env.conf, SSL certificates and Podman secrets are retained.')
+    print('Start Jenkins with the same Compose files and --env-file env.conf to run initial setup.')
 
 
 def main():
