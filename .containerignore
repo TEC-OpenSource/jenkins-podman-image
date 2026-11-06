@@ -1,2 +1,7 @@
 **
 !Containerfile
+!deployment/
+!deployment/offline/
+!deployment/offline/update-center.json
+!deployment/offline/platform-plugins.json
+!deployment/offline/hudson.model.UpdateCenter.xml

@@ -13,9 +13,10 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-INPUTS = ('Containerfile', '.env.example', 'podman-compose.yml',
+INPUTS = ('Containerfile', 'env.example', 'podman-compose.yml',
           'podman-compose.https.yml', 'deployment/https.properties.example',
-          'deployment/README.offline.txt.in')
+          'deployment/README.offline.txt.in', 'scripts/reset-jenkins.py',
+          'deployment/offline/hudson.model.UpdateCenter.xml')
 
 
 def sha256(path):
@@ -53,7 +54,7 @@ def render_env(source, values):
 def make_package(root, output_dir, image=None, platform='linux/amd64'):
     root = Path(root).resolve()
     output_dir = Path(output_dir).resolve()
-    # An allowlist prevents shipping .env, live homes, plugin binaries, or private keys.
+    # An allowlist prevents shipping env, live homes, plugin binaries, or private keys.
     for name in INPUTS:
         path = root / name
         if path.is_symlink() or not path.is_file():
@@ -62,11 +63,11 @@ def make_package(root, output_dir, image=None, platform='linux/amd64'):
     if not match:
         raise ValueError('Cannot determine JDK version from Containerfile FROM')
     jdk = match.group(1)
-    env_source = (root / '.env.example').read_text()
+    env_source = (root / 'env.example').read_text()
     if image is None:
         match = re.search(r'^JENKINS_IMAGE=(\S+)\s*$', env_source, re.MULTILINE)
         if not match:
-            raise ValueError('No default JENKINS_IMAGE in .env.example')
+            raise ValueError('No default JENKINS_IMAGE in env.example')
         image = match.group(1)
     # Require a named tag so podman load can restore exactly the reference in Compose.
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:/-]*:[A-Za-z0-9_][A-Za-z0-9_.-]*', image):
@@ -78,6 +79,8 @@ def make_package(root, output_dir, image=None, platform='linux/amd64'):
     if actual_platform != platform:
         raise ValueError(f'Image platform is {actual_platform}; expected {platform}. Build the correct platform first')
     image_env = dict(value.split('=', 1) for value in info.get('Config', {}).get('Env', []) if '=' in value)
+    if '-Dhudson.model.UpdateCenter.updateCenterUrl=file:/opt/jenkins-offline/' not in image_env.get('JENKINS_JAVA_OPTS', '').split():
+        raise ValueError('Image has no local offline catalog configuration; rebuild the current Containerfile first')
     java_version = image_env.get('JAVA_VERSION', '')
     if java_version:
         java_major = re.match(r'(?:jdk-)?(\d+)', java_version)
@@ -107,7 +110,10 @@ def make_package(root, output_dir, image=None, platform='linux/amd64'):
             raise ValueError('Expected JENKINS_IMAGE fallback in podman-compose.yml')
         compose_path.write_text(compose)
         shutil.copyfile(root / 'deployment/https.properties.example', package / 'ssl/https.properties.example')
-        (package / '.env.example').write_text(render_env(env_source, {
+        (package / 'scripts').mkdir(mode=0o700)
+        shutil.copyfile(root / 'scripts/reset-jenkins.py', package / 'scripts/reset-jenkins.py')
+        shutil.copyfile(root / 'deployment/offline/hudson.model.UpdateCenter.xml', package / 'offline-update-center.xml')
+        (package / 'env.example').write_text(render_env(env_source, {
             'JENKINS_IMAGE': image,
             'JENKINS_HOME_DIR': './jenkins_home',
             'JENKINS_PLUGINS_DIR': './plugins',
@@ -157,7 +163,7 @@ def make_package(root, output_dir, image=None, platform='linux/amd64'):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--image', help='Existing fully qualified local image tag; default: .env.example')
+    parser.add_argument('--image', help='Existing fully qualified local image tag; default: env.example')
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'dist', help='Default: repository dist/')
     parser.add_argument('--platform', default='linux/amd64', choices=('linux/amd64', 'linux/arm64'))
     args = parser.parse_args()

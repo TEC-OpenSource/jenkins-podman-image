@@ -4,7 +4,7 @@ services:
   jenkins:
     command: ["--config=/run/secrets/jenkins-https-config"]
     ports:
-      - "${JENKINS_HTTPS_BIND:-127.0.0.1}:${JENKINS_HTTPS_PORT:-8443}:8443"
+      - "${JENKINS_HTTPS_BIND:-0.0.0.0}:${JENKINS_HTTPS_PORT:-8443}:8443"
     volumes:
       - "${JENKINS_SSL_DIR:-./ssl}:/var/jenkins_ssl:ro,Z"
     secrets:

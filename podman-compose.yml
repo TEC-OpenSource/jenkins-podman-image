@@ -1,7 +1,7 @@
 services:
   jenkins:
     # An imported, versioned local tag. There is deliberately no build section.
-    image: ${JENKINS_IMAGE:-localhost/jenkins-25:2.580.2-1-amd64}
+    image: ${JENKINS_IMAGE:-localhost/jenkins-25:2.580.2-2-amd64}
     pull_policy: never
     container_name: jenkins-25
     user: "jenkins:jenkins"
@@ -10,13 +10,13 @@ services:
     restart: unless-stopped
     stop_grace_period: 120s
     ports:
-      - "${JENKINS_HTTP_BIND:-127.0.0.1}:${JENKINS_HTTP_PORT:-8080}:8080"
+      - "${JENKINS_HTTP_BIND:-0.0.0.0}:${JENKINS_HTTP_PORT:-8080}:8080"
     volumes:
       # Defaults are relative to this Compose file, not the calling shell's cwd.
       - "${JENKINS_HOME_DIR:-./jenkins_home}:/var/jenkins_home:Z"
       - "${JENKINS_PLUGINS_DIR:-./plugins}:/var/jenkins_home/plugins:Z"
     environment:
-      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx1g -Djava.awt.headless=true -Duser.timezone=Asia/Seoul}
+      JAVA_OPTS: ${JAVA_OPTS:--Xms1g -Xmx4g -Djava.awt.headless=true -Duser.timezone=Asia/Seoul}
     cap_drop:
       - ALL
     security_opt:

@@ -28,13 +28,14 @@ class PackageTests(unittest.TestCase):
             target = self.root / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / name, target)
-        (self.root / '.env').write_text('DO_NOT_PACKAGE_LIVE_ENV')
+        (self.root / 'env').write_text('DO_NOT_PACKAGE_LIVE_ENV')
         for name in ('ssl/private.key', 'plugins/live-marker', 'jenkins_home/users/config.xml'):
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('DO_NOT_PACKAGE_LIVE_DATA')
         self.info = {'Id': 'a' * 64, 'Os': 'linux', 'Architecture': 'amd64', 'RepoTags': [IMAGE],
-                     'Config': {'Env': ['JENKINS_VERSION=2.580.2', 'JAVA_VERSION=jdk-25.0.5+8']}}
+                     'Config': {'Env': ['JENKINS_VERSION=2.580.2', 'JAVA_VERSION=jdk-25.0.5+8',
+                                        'JENKINS_JAVA_OPTS=-Dhudson.model.UpdateCenter.updateCenterUrl=file:/opt/jenkins-offline/']}}
         self.calls = []
 
     def podman(self, *args):
@@ -62,13 +63,15 @@ class PackageTests(unittest.TestCase):
         prefix = 'jenkins-podman-jdk25/'
         with tarfile.open(result) as archive:
             names = set(archive.getnames())
-            for name in ['.env.example', 'podman-compose.yml', 'podman-compose-https.yml', 'README.txt',
+            for name in ['env.example', 'podman-compose.yml', 'podman-compose-https.yml', 'README.txt',
                          'IMAGE.txt', 'SHA256SUMS', 'ssl', 'plugins', 'jenkins_home', 'archives',
                          'ssl/https.properties.example', 'archives/jenkins-25-amd64.oci.tar']:
                 self.assertIn(prefix + name, names)
-            for name in ['.env', 'ssl/private.key', 'plugins/live-marker', 'jenkins_home/users/config.xml']:
+            self.assertIn(prefix + 'scripts/reset-jenkins.py', names)
+            self.assertIn(prefix + 'offline-update-center.xml', names)
+            for name in ['env', 'ssl/private.key', 'plugins/live-marker', 'jenkins_home/users/config.xml']:
                 self.assertNotIn(prefix + name, names)
-            env = archive.extractfile(prefix + '.env.example').read().decode()
+            env = archive.extractfile(prefix + 'env.example').read().decode()
             self.assertIn('JENKINS_IMAGE=' + IMAGE, env)
             self.assertIn('JENKINS_SSL_DIR=./ssl', env)
             compose = archive.extractfile(prefix + 'podman-compose.yml').read().decode()
@@ -76,6 +79,8 @@ class PackageTests(unittest.TestCase):
             readme = archive.extractfile(prefix + 'README.txt').read().decode()
             self.assertNotIn('@@', readme)
             self.assertIn('podman load --input jenkins-25-amd64.oci.tar', readme)
+            self.assertIn('\npodman-compose --env-file env -f podman-compose.yml up --no-build -d\n', readme)
+            self.assertFalse(any(line[:1].isspace() for line in readme.splitlines() if line))
             for line in archive.extractfile(prefix + 'SHA256SUMS').read().decode().splitlines():
                 expected, name = line.split('  ', 1)
                 self.assertEqual(hashlib.sha256(archive.extractfile(prefix + name).read()).hexdigest(), expected)
@@ -83,7 +88,7 @@ class PackageTests(unittest.TestCase):
         checksum = result.with_name(result.name + '.sha256').read_text().split()[0]
         self.assertEqual(package.sha256(result), checksum)
         self.assertTrue(all(call[0] in ('image', 'save') for call in self.calls))
-        self.assertEqual((self.root / '.env').read_text(), 'DO_NOT_PACKAGE_LIVE_ENV')
+        self.assertEqual((self.root / 'env').read_text(), 'DO_NOT_PACKAGE_LIVE_ENV')
 
     def test_wrong_architecture_is_rejected_before_export(self):
         self.info['Architecture'] = 'arm64'
@@ -91,6 +96,12 @@ class PackageTests(unittest.TestCase):
             self.make()
         self.assertFalse(any(call[0] == 'save' for call in self.calls))
         self.assertFalse(self.output.exists())
+
+    def test_old_image_without_offline_catalog_is_rejected(self):
+        self.info['Config']['Env'] = ['JENKINS_VERSION=2.580.2']
+        with self.assertRaisesRegex(ValueError, 'rebuild'):
+            self.make()
+        self.assertFalse(any(call[0] == 'save' for call in self.calls))
 
     def test_image_tag_change_does_not_replace_previous_package(self):
         self.output.mkdir()
@@ -109,9 +120,9 @@ class PackageTests(unittest.TestCase):
         self.assertFalse(any(self.output.glob('.package-*')))
 
     def test_symlink_input_is_rejected(self):
-        path = self.root / '.env.example'
+        path = self.root / 'env.example'
         path.unlink()
-        path.symlink_to(self.root / '.env')
+        path.symlink_to(self.root / 'env')
         with self.assertRaisesRegex(ValueError, 'symlink'):
             self.make()
         self.assertEqual(self.calls, [])

@@ -4,7 +4,7 @@ StartLimitIntervalSec=300
 StartLimitBurst=3
 
 [Container]
-Image=localhost/jenkins-25:2.580.2-1-amd64
+Image=localhost/jenkins-25:2.580.2-2-amd64
 Pull=never
 ContainerName=jenkins-25
 User=jenkins:jenkins
@@ -12,7 +12,7 @@ UserNS=keep-id:uid=1000,gid=1000
 # Replace both paths with absolute paths beside podman-compose.yml before installation.
 Volume=/REPLACE/jenkins-podman-image/jenkins_home:/var/jenkins_home:Z
 Volume=/REPLACE/jenkins-podman-image/plugins:/var/jenkins_home/plugins:Z
-PublishPort=127.0.0.1:8080:8080
+PublishPort=0.0.0.0:8080:8080
 EnvironmentFile=%h/.config/jenkins/jenkins.env
 NoNewPrivileges=true
 DropCapability=all
