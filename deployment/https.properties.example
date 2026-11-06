@@ -1,0 +1,7 @@
+# Copy to ssl/https.properties, fill the secret locally, then create a Podman secret.
+# This file uses Java .properties escaping (especially backslashes in passwords).
+httpPort=-1
+httpsPort=8443
+httpsKeyStore=/var/jenkins_ssl/jenkins.p12
+httpsKeyStoreType=PKCS12
+httpsKeyStorePassword=REPLACE_WITH_KEYSTORE_PASSWORD

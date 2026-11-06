@@ -1,0 +1,141 @@
+Jenkins 폐쇄망 배포 안내 (JDK @@JDK_VERSION@@)
+============================================================
+이미지: @@IMAGE_REF@@
+이미지 ID: @@IMAGE_ID@@
+플랫폼: @@PLATFORM@@
+Jenkins: @@CORE_VERSION@@
+
+이 패키지에는 빌드한 이미지와 실행 설정만 포함됩니다.
+개인 인증서/키, 운영 .env, 사용자/Job/Agent/플러그인 데이터는 포함하지 않습니다.
+아래 명령은 동일한 배포용 일반 OS 계정(rootless, sudo 없이)으로 실행합니다.
+
+0. 사전 준비
+------------
+- 운영 서버: @@HOST_ARCH@@ Linux, systemd/cgroup v2 권장.
+- Podman과 podman-compose 1.5.0 및 실행 의존성을 OS 도구로 미리 반입/설치합니다.
+- 이 패키지는 운영 서버에서 빌드, Pull, pip/Maven 설치를 수행하지 않습니다.
+- 기존 운영 폴더 위에 새 배포 tar를 바로 덮어 풀지 마십시오. 빈 별도 경로에 풉니다.
+
+1. 배포 파일 압축 해제와 검증
+----------------------------
+배포 tar 옆 외부 체크섬 파일도 받았다면 먼저 확인합니다.
+
+  sha256sum -c @@PACKAGE_NAME@@.tar.sha256
+  tar -xf @@PACKAGE_NAME@@.tar
+  cd @@PACKAGE_NAME@@
+  sha256sum -c SHA256SUMS
+
+외부 체크섬 파일 없이 tar만 반입한 경우 tar -xf부터 실행하고,
+내부 SHA256SUMS 검사 결과를 확인합니다. 체크섬은 승인된 반입 기록과도 대조합니다.
+
+압축 해제 결과:
+  .env.example
+  podman-compose.yml
+  podman-compose-https.yml
+  README.txt / IMAGE.txt / SHA256SUMS
+  jenkins_home/   설정, 프로젝트, Agent, 사용자, Credentials, 암호화 키
+  plugins/        플러그인 추가 폴더 (처음에는 비어 있음)
+  ssl/           HTTPS 자료 폴더 (비밀 없는 설정 예제만 포함)
+  archives/      Jenkins OCI 이미지와 해당 이미지 체크섬
+
+2. 이미지 로드
+--------------
+  uname -m
+  cd archives
+  sha256sum -c @@IMAGE_ARCHIVE@@.sha256
+  podman load --input @@IMAGE_ARCHIVE@@
+  podman image inspect --format '{{.Os}}/{{.Architecture}}' @@IMAGE_REF@@
+  podman image inspect --format '{{.Id}}' @@IMAGE_REF@@
+  cd ..
+
+플랫폼 출력은 @@PLATFORM@@, Image ID는 이 문서 상단 값과 같아야 합니다.
+이 단계는 이미지 가져오기이며 기존 운영 데이터나 컨테이너를 변경하지 않습니다.
+
+3. 신규 서버의 순수 Jenkins 실행
+------------------------------
+  test -f .env || cp .env.example .env
+  chmod 600 .env
+  mkdir -p jenkins_home plugins ssl
+  podman-compose -f podman-compose.yml config
+  podman-compose -f podman-compose.yml up --no-build -d
+  podman-compose -f podman-compose.yml ps
+  podman-compose -f podman-compose.yml logs -f
+
+기본 image는 @@IMAGE_REF@@입니다. build 항목이 없고 pull_policy는 never입니다.
+이미지가 없으면 실패해야 하며 외부 다운로드로 대체하지 않습니다.
+호스트 사용자와 컨테이너 jenkins:jenkins(UID/GID 1000)는 rootless keep-id로 연결합니다.
+bind에는 SELinux :Z를 적용합니다. 기존 데이터에 재귀 chown/chmod를 자동 적용하지 않습니다.
+
+기본 HTTP는 서버의 127.0.0.1:8080에만 공개합니다.
+외부 PC에서 접속하려면 해당 PC에서 다음과 같이 SSH 터널을 엽니다.
+  ssh -L 18080:127.0.0.1:8080 운영계정@서버주소
+그 뒤 PC 브라우저에서 http://127.0.0.1:18080 으로 접속합니다.
+
+최초 관리자 암호:
+  podman-compose exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+
+신규 홈은 Jenkins 기본 Setup Wizard로 관리자를 만듭니다.
+폐쇄망에서는 추가/권장 플러그인 설치를 건너뜁니다. 처음에는 순수 Jenkins만 기동합니다.
+외부 Update Center 경고가 있어도 Core 실행에 추가 다운로드는 필요하지 않습니다.
+
+4. 기존 데이터가 있는 서버
+-------------------------
+기존 .env 및 jenkins_home/plugins 폴더를 새 빈 폴더로 바꾸지 마십시오.
+기존 홈과 플러그인 모두 백업하고, 중지 후 실제 기존 경로를 .env에 연결합니다.
+예:
+  JENKINS_HOME_DIR=/기존/jenkins_home
+  JENKINS_PLUGINS_DIR=/기존/jenkins_home/plugins
+
+JENKINS_IMAGE만 새 반입 태그로 명시적으로 바꿉니다.
+컨테이너를 재생성해도 동일한 경로의 설정/프로젝트/Agent/사용자/키를 그대로 사용합니다.
+Core 버전이 다르면 격리 복사본으로 호환성과 Jenkins 자체 마이그레이션을 먼저 확인합니다.
+기존 인증 Realm에 필요한 플러그인은 반드시 보존해야 합니다.
+이전 배포가 만든 init.groovy.d/00-managed-security.groovy가 있다면 중지/백업 후
+그 파일만 홈 밖으로 보존 이동합니다. config.xml/users/jobs/nodes/secrets는 지우지 않습니다.
+과거 로컬 Update Center 경로가 존재하지 않는 파일을 가리키면 관리자 설정에서 조정합니다.
+
+5. 이미지 재빌드 없이 플러그인 추가
+----------------------------------
+  podman-compose -f podman-compose.yml down
+  # 홈과 plugins 전체를 별도 백업
+  # 승인된 .hpi/.jpi와 모든 필수 의존성을 .env의 실제 plugins 경로에 복사
+  podman-compose -f podman-compose.yml up --no-build -d
+
+plugins/는 /var/jenkins_home/plugins에 연결됩니다. 실행 시 의존성을 다운로드하지 않습니다.
+IM-Sync/EAI-Login/ORG-Sync도 준비가 완료되면 같은 방식으로 추가합니다.
+같은 Short-Name의 HPI/JPI를 중복으로 두지 않습니다. 새 플러그인/기존 정책은 별도 검증합니다.
+교체/제거는 중지/백업 후 해당 ID의 아카이브, 압축 디렉터리, 관련 표식만 분리합니다.
+일반 설정 XML, 사용자, Job, Agent 정보는 플러그인 교체와 함께 삭제하지 않습니다.
+
+6. 선택적인 HTTPS (이미지 재빌드 없음)
+------------------------------------
+ssl/에 서버 인증서/키를 PKCS12로 준비합니다. 비밀 자료는 이 패키지에 들어 있지 않습니다.
+예: 인증서와 키가 있다면 암호를 대화식으로 입력합니다.
+  openssl pkcs12 -export -in ssl/fullchain.pem -inkey ssl/privkey.pem -out ssl/jenkins.p12 -name jenkins
+  cp ssl/https.properties.example ssl/https.properties
+
+ssl/https.properties의 httpsKeyStorePassword를 실제 값으로 채웁니다.
+Java properties의 역슬래시 escaping을 지킵니다. 암호를 .env/Git/명령행에 넣지 않습니다.
+keystore 경로는 /var/jenkins_ssl/jenkins.p12입니다.
+
+  podman-compose -f podman-compose.yml down
+  chmod 600 ssl/jenkins.p12 ssl/https.properties
+  podman secret create jenkins-https-config ssl/https.properties
+  podman-compose -f podman-compose.yml -f podman-compose-https.yml config
+  podman-compose -f podman-compose.yml -f podman-compose-https.yml up --no-build --force-recreate -d
+
+기본 주소는 https://127.0.0.1:8443입니다. 인증서 SAN에 맞는 호스트 이름을 사용합니다.
+외부 공개는 .env의 JENKINS_HTTPS_BIND/PORT와 DNS/방화벽을 명시적으로 설정합니다.
+HTTPS 설정은 HTTP listener를 비활성화합니다. Jenkins URL도 관리자 화면에서 변경합니다.
+Secret이 이미 있다면 컨테이너 중지 후 기존 Secret을 교체하고 다시 생성해야 합니다.
+이전 certs/JENKINS_CERTS_DIR 설정은 ssl/JENKINS_SSL_DIR와 새 keystore 경로로 바꿉니다.
+
+7. 운영/재시작/백업
+------------------
+  podman-compose -f podman-compose.yml down
+  podman-compose -f podman-compose.yml up --no-build -d
+
+이 명령은 bind 폴더를 삭제하지 않습니다. 경로를 유지하고 rm -rf로 데이터를 지우지 않습니다.
+Linux 재부팅 복구는 rootless 사용자 서비스/linger와 배포판 Podman 설정을 별도 검증합니다.
+업데이트 전 전체 홈과 plugins를 암호화 백업하고 롤백 시 이미지와 이전 전체 백업을 함께 복원합니다.
+실제 인증/조직/Oracle 연동 및 플러그인 권한 정책은 각각 인수시험이 필요합니다.

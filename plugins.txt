@@ -1,0 +1,3 @@
+# Optional external preparation list: ID:exact-version, one per line.
+# Empty by default: the Jenkins image and initial plugins directory are pure/empty.
+# This file is never installed during image build or container startup.

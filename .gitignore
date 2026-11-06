@@ -1,0 +1,56 @@
+# Runtime data and secrets
+/jenkins_home/
+/plugins/
+/ssl/
+/certs/
+/.env
+/.env.*
+!/.env.example
+/secrets/
+/backups/
+**/credentials.xml
+**/secret.key*
+**/https.properties
+/environments/*.env
+!/environments/*.env.example
+
+# Generated build, package and validation outputs
+/build/
+/dist/
+/archives/
+/reports/
+/plugin-stage*/
+*.hpi
+*.jpi
+*.tar
+*.tar.gz
+*.oci
+*.sha256
+
+# Certificates, private keys and keystores
+*.pem
+*.key
+*.crt
+*.cer
+*.csr
+*.der
+*.jks
+*.p12
+*.pfx
+*.jceks
+*.keystore
+
+# Local tooling, caches and editor files
+/.venv/
+/venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+**/target/
+**/__pycache__/
+*.py[cod]
+*.swp
+*.swo
+*~
+**/.DS_Store
+*.log

@@ -1,0 +1,23 @@
+services:
+  jenkins:
+    # An imported, versioned local tag. There is deliberately no build section.
+    image: ${JENKINS_IMAGE:-localhost/jenkins-25:2.580.2-1-amd64}
+    pull_policy: never
+    container_name: jenkins-25
+    user: "jenkins:jenkins"
+    # Rootless host user owns the bind directory, even when its UID is not 1000.
+    userns_mode: "keep-id:uid=1000,gid=1000"
+    restart: unless-stopped
+    stop_grace_period: 120s
+    ports:
+      - "${JENKINS_HTTP_BIND:-127.0.0.1}:${JENKINS_HTTP_PORT:-8080}:8080"
+    volumes:
+      # Defaults are relative to this Compose file, not the calling shell's cwd.
+      - "${JENKINS_HOME_DIR:-./jenkins_home}:/var/jenkins_home:Z"
+      - "${JENKINS_PLUGINS_DIR:-./plugins}:/var/jenkins_home/plugins:Z"
+    environment:
+      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx1g -Djava.awt.headless=true -Duser.timezone=Asia/Seoul}
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
