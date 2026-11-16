@@ -97,3 +97,16 @@ Compose의 `env_file`, HTTPS 실행 예시와 Quadlet의 `EnvironmentFile`을 en
 이 시험에서는 최초 관리자 등록 5분 후 자동 종료가 재현되지 않았습니다. 코드의 5m은 컨테이너 기동 후 응답 검사 실패를 유예하는 시간이며 관리자 등록 기준의 종료 예약이 아닙니다. 유예 종료 뒤 실제 응답 검사 실패가 누적되면 복구 타이머/Quadlet이 재시작을 유발할 수 있습니다. Quadlet의 TimeoutStartSec=300은 서비스 시작 완료 제한이며 가동 시간 제한이 아닙니다.
 
 시험은 ARM Mac의 rootless Podman 6.1.4 VM에서 amd64 이미지를 실행한 결과입니다. VM 사용자 linger는 활성 상태였습니다. 실제 운영 서버의 종료 원인을 확인한 결과는 아니며, 운영 서버의 실행/종료 상태와 health 기록, 서비스 관리자 로그가 없으므로 해당 원인은 미확인입니다. 동작 설정을 임의로 바꾸거나 복구 기능을 비활성화하지 않았습니다.
+
+## 컨테이너 KST와 IM-Sync 점검 (2026-11-16)
+
+기존 이미지는 JVM에만 `-Duser.timezone=Asia/Seoul`이 있고 OS용 `TZ`는 없었습니다. 외부 통신 없는 컨테이너에서 기본 date는 UTC +0000, TZ=Asia/Seoul 지정 후에는 KST +0900으로 표시됐습니다. 이미지에 Asia/Seoul 시간대 데이터가 있어 패키지 설치나 호스트 시간대 파일 연결은 추가하지 않았습니다.
+
+- Containerfile, Compose와 env.conf 예제에 KST를 반영했습니다. 새 amd64 이미지 `localhost/jenkins-25:2.580.2-4-amd64`의 ID는 `88bb8098c3b04160a84a3640f40876cd9e97b32a6a33aaa460ff6d9883a2e5e7`입니다. Jenkins Core와 JDK 버전은 변경하지 않았습니다.
+- 기존 -3 이미지와 이전 Compose에 env.conf의 TZ만 추가해 기동하는 방법도 시험했습니다. OS는 KST +0900, 실제 Jenkins JVM의 user.timezone은 Asia/Seoul, java.version은 25.0.5였습니다.
+- Podman Compose 1.5.0에서 HTTP/HTTPS 구성과 TZ 명시값/생략 시 기본값, 기존 홈/plugins 상대 경로 유지를 확인했습니다. HTTPS 실제 TLS 접속은 이번 시간대 변경에서 다시 시험하지 않았습니다.
+- 새 배포 tar의 외부 체크섬과 내부 파일 13개 체크섬, README.txt 명령의 들여쓰기 제거, 운영 설정·데이터 제외를 확인했습니다. 추출한 OCI 아카이브를 실제 load한 뒤 이미지 ID와 linux/amd64 플랫폼이 일치했습니다.
+- 동일 시험 홈/plugins를 유지해 -3에서 -4 이미지로 재생성했습니다. network=none에서 Jenkins는 running/healthy였고 OS와 실제 JVM 모두 KST였습니다. 설정·초기 사용자·암호화 키 등 10개 파일의 SHA-256이 같았습니다. 운영 데이터나 Job/Agent는 이번 시험에 추가하지 않았습니다.
+- 기존 단위 검사 40개 통과, 별도 실행 환경을 요구하는 초기 로그인 HTTP 검사 1개 건너뜀입니다. 업무 플러그인 소스는 수정하지 않았습니다.
+
+현재 IM-Sync 소스의 ImSyncBatchJob은 Asia/Seoul 기준으로 1분마다 실행 조건을 검사합니다. 활성화 여부, 쿼리, 설정 시각, 당일 배치 성공일과 실패 후 5분 재시도 조건을 사용하므로 OS의 UTC 표시만으로 미실행 원인을 확정할 수 없습니다. 실제 서버에 설치된 HPI 버전, 자동 실행 설정과 작업 로그, 내부 Oracle DB 연동은 접근할 수 없어 검증하지 않았습니다. 이번 변경을 실제 IM-Sync 동기화 성공으로 간주하지 않습니다.

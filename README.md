@@ -19,8 +19,8 @@ podman machine start
 ```
 
 ```sh
-podman build --platform linux/amd64 --format oci -f Containerfile -t localhost/jenkins-25:2.580.2-3-amd64 .
-podman image inspect --format '{{.Os}}/{{.Architecture}}' localhost/jenkins-25:2.580.2-3-amd64
+podman build --platform linux/amd64 --format oci -f Containerfile -t localhost/jenkins-25:2.580.2-4-amd64 .
+podman image inspect --format '{{.Os}}/{{.Architecture}}' localhost/jenkins-25:2.580.2-4-amd64
 ```
 
 플랫폼 출력은 `linux/amd64`여야 합니다. Jenkins/JDK 버전은 `Containerfile`의 FROM 태그와 digest를 변경하고, 새 이미지 태그로 구분합니다. 플러그인 추가에는 이미지 재빌드가 필요하지 않습니다.
@@ -30,7 +30,7 @@ podman image inspect --format '{{.Os}}/{{.Architecture}}' localhost/jenkins-25:2
 빌드한 로컬 이미지를 지정합니다. 이 명령이 이미지 저장과 배포 tar 생성을 수행합니다.
 
 ```sh
-python3 scripts/package-deploy.py --image localhost/jenkins-25:2.580.2-3-amd64
+python3 scripts/package-deploy.py --image localhost/jenkins-25:2.580.2-4-amd64
 ```
 
 생성되는 두 파일을 함께 내부망 서버에 반입합니다.

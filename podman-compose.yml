@@ -1,7 +1,7 @@
 services:
   jenkins:
     # An imported, versioned local tag. There is deliberately no build section.
-    image: ${JENKINS_IMAGE:-localhost/jenkins-25:2.580.2-3-amd64}
+    image: ${JENKINS_IMAGE:-localhost/jenkins-25:2.580.2-4-amd64}
     pull_policy: never
     container_name: jenkins-25
     user: "jenkins:jenkins"
@@ -21,6 +21,7 @@ services:
       - "${JENKINS_PLUGINS_DIR:-./plugins}:/var/jenkins_home/plugins:Z"
       - "./scripts/healthcheck.sh:/usr/local/bin/jenkins-healthcheck.sh:ro,Z"
     environment:
+      TZ: ${TZ:-Asia/Seoul}
       JAVA_OPTS: ${JAVA_OPTS:--Xms1g -Xmx4g -Djava.awt.headless=true -Duser.timezone=Asia/Seoul}
       JENKINS_HEALTH_SCHEME: http
       JENKINS_HEALTH_PORT: "8080"
