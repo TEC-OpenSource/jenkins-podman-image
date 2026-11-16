@@ -15,7 +15,8 @@
 **/secret.key*
 **/https.properties
 /environments/*.env
-!/environments/*.env.example
+/environments/*.conf
+!/environments/*.conf.example
 
 # Generated build, package and validation outputs
 /build/

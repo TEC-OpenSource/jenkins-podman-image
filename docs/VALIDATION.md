@@ -66,3 +66,34 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -p test_setup_ro
 ```
 
 플러그인 선택 화면에서 기존 Core 번들의 scrollspy 관련 `a.isWindow is not a function` 콘솔 오류도 관찰됐으나 플러그인 0개 선택과 초기 설정 완료는 진행됐습니다. 이 콘솔 오류의 Core 프런트엔드 호환성 확인과 실제 x86 운영 서버의 인수시험은 남아 있습니다.
+
+## env.conf 설정과 자동 복구 (2026-11-07)
+
+Compose의 `env_file`, HTTPS 실행 예시와 Quadlet의 `EnvironmentFile`을 env.conf 기준으로 맞췄습니다. Quadlet용 최소 예제도 `environments/env.conf.example`로 변경했습니다. 이미지/호스트 경로/포트의 Compose 치환에는 계속 `--env-file env.conf`를 사용합니다.
+
+- Jenkins/JDK 이미지는 기존 `2.580.2-3-amd64`를 사용하며 재빌드하지 않았습니다. 응답 검사 스크립트는 배포 폴더에서 읽기 전용으로 연결하고, 사용자용 복구 서비스/타이머를 배포 tar에 포함했습니다.
+- 실제 Compose 1.5.0으로 새 시험 홈을 기동해 30초 간격/10초 제한/3회 실패/5분 시작 유예 설정과 HTTP healthy 상태를 확인했습니다. 초기화 중 연결 실패는 시작 유예 처리됐습니다.
+- 시험 컨테이너 내부에서 PID 1에 종료 신호를 보내 실제 Jenkins 종료를 유도했습니다. `unless-stopped` 정책으로 다시 시작됐고 RestartCount가 증가했습니다. 시험 설정/Job/Agent/사용자/암호화 키 6개 파일의 SHA-256은 같았습니다.
+- 시험 ID와 reports/healing-run 전용 마운트를 확인한 뒤 healthcheck 실패를 주입했습니다. VM의 사용자용 systemd 타이머가 unhealthy 컨테이너를 재시작했고 다시 healthy가 됐습니다. 비슷한 이름의 별도 컨테이너는 재시작되지 않았습니다. 타이머의 정상 컨테이너 제외와 수동 중지 상태 유지도 확인했습니다.
+- oneshot 복구 명령이 끝날 때 새 conmon/Jenkins 프로세스를 정리하지 않도록 `KillMode=process`를 적용했습니다. 실행 중 상태를 명시적으로 필터링하며, 이전 명령 완료 후 30초에 다시 검사합니다. 서비스 종료 결과 success/inactive와 후속 타이머 실행을 확인했습니다.
+- 시험 인증서와 별도 Podman Secret으로 동일 데이터를 HTTPS로 재생성했습니다. HTTPS probe가 healthy였고 같은 6개 파일의 내용이 유지됐습니다. TLS probe의 인증서 검증 생략은 자격 증명을 보내지 않는 컨테이너 내부 loopback 요청에만 적용됩니다.
+- Quadlet은 실제 generator의 user/dryrun 모드에서 env.conf 경로, HealthOnFailure=kill, Restart=always 변환을 확인했습니다. Quadlet 서비스를 실제로 실행해 장애 복구하는 시험은 수행하지 않았습니다.
+- 건강 검사 단위 검사 4개가 통과했습니다. 함께 실행한 현재 전체 검사는 40개 통과, 별도 실행 환경이 필요한 초기 로그인 HTTP 검사 1개 건너뜀입니다. 실제 서버의 로그아웃/linger/재부팅 복구와 배포판별 사용자 podman-restart.service 지원은 별도 확인이 필요합니다.
+
+운영 데이터는 사용하지 않았습니다. Podman 소켓/privileged 권한, 인증 정책, 업무 플러그인 소스는 이번 복구 기능에서 변경하지 않았습니다. Podman/호스트 자체가 동작하지 않는 상황의 복구를 컨테이너 재시작 기능으로 보장하지 않습니다.
+
+동작 기준은 [Podman 재시작 및 필터](https://docs.podman.io/en/stable/markdown/podman-restart.1.html), [Podman 실행/재시작 정책](https://docs.podman.io/en/stable/markdown/podman-run.1.html), [systemd 타이머](https://www.freedesktop.org/software/systemd/man/259/systemd.timer.html)를 참고했습니다.
+
+## 최초 관리자 등록 후 5분 종료 점검 (2026-11-09)
+
+실제 배포 tar의 Compose/응답 검사/복구 서비스·타이머와 파일 권한이 현재 소스와 같은지 확인했습니다. 운영 서버와 이름·포트·데이터가 다른 새 시험 컨테이너를 만들고 기본 admin을 건너뛰는 대신 Setup Wizard API로 새 관리자 계정을 실제 등록했습니다. 플러그인 0개 설치와 URL 설정을 마친 후 배포본과 같은 복구 타이머를 활성화했습니다. 시험용 컨테이너/서비스 이름만 변경했습니다.
+
+- 관리자 등록 후 452초 동안 30초 간격으로 16회 관찰했습니다. 컨테이너 기동 기준으로는 약 9분이 지났습니다.
+- 모든 표본이 running/healthy였고, 컨테이너 ID와 StartedAt이 유지됐으며 RestartCount는 0, OOMKilled는 false였습니다.
+- 초기화 완료 후 컨테이너 로그에 Stopping Jenkins/Jenkins stopped/Shutdown hook 등의 종료 메시지가 없었습니다. 복구 서비스는 success/inactive, 타이머는 active 상태였습니다.
+- 관리자·보안 설정과 암호화 키 파일 내용도 유지됐습니다. 운영 데이터는 사용하지 않았습니다.
+- 정상 가동 중에도 State.ExitCode는 0으로 표시됐습니다. ExitCode=0만으로 종료 여부나 종료 원인을 판정할 수 없습니다.
+
+이 시험에서는 최초 관리자 등록 5분 후 자동 종료가 재현되지 않았습니다. 코드의 5m은 컨테이너 기동 후 응답 검사 실패를 유예하는 시간이며 관리자 등록 기준의 종료 예약이 아닙니다. 유예 종료 뒤 실제 응답 검사 실패가 누적되면 복구 타이머/Quadlet이 재시작을 유발할 수 있습니다. Quadlet의 TimeoutStartSec=300은 서비스 시작 완료 제한이며 가동 시간 제한이 아닙니다.
+
+시험은 ARM Mac의 rootless Podman 6.1.4 VM에서 amd64 이미지를 실행한 결과입니다. VM 사용자 linger는 활성 상태였습니다. 실제 운영 서버의 종료 원인을 확인한 결과는 아니며, 운영 서버의 실행/종료 상태와 health 기록, 서비스 관리자 로그가 없으므로 해당 원인은 미확인입니다. 동작 설정을 임의로 바꾸거나 복구 기능을 비활성화하지 않았습니다.

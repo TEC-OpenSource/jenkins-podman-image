@@ -1,8 +1,11 @@
 # Optional native Jenkins HTTPS. No reverse proxy or image rebuild is required.
-# podman-compose -f podman-compose.yml -f podman-compose.https.yml up --no-build -d
+# podman-compose --env-file env.conf -f podman-compose.yml -f podman-compose.https.yml up --no-build -d
 services:
   jenkins:
     command: ["--config=/run/secrets/jenkins-https-config"]
+    environment:
+      JENKINS_HEALTH_SCHEME: https
+      JENKINS_HEALTH_PORT: "8443"
     ports:
       - "${JENKINS_HTTPS_BIND:-0.0.0.0}:${JENKINS_HTTPS_PORT:-8443}:8443"
     volumes:

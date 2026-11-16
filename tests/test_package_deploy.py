@@ -69,6 +69,9 @@ class PackageTests(unittest.TestCase):
                          'ssl/https.properties.example', 'archives/jenkins-25-amd64.oci.tar']:
                 self.assertIn(prefix + name, names)
             self.assertIn(prefix + 'scripts/reset-jenkins.py', names)
+            self.assertIn(prefix + 'scripts/healthcheck.sh', names)
+            self.assertIn(prefix + 'systemd/jenkins-healing.service', names)
+            self.assertIn(prefix + 'systemd/jenkins-healing.timer', names)
             self.assertIn(prefix + 'offline-update-center.xml', names)
             for name in ['env.conf', 'ssl/private.key', 'plugins/live-marker', 'jenkins_home/users/config.xml']:
                 self.assertNotIn(prefix + name, names)

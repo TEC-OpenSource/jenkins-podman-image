@@ -9,16 +9,23 @@ Pull=never
 ContainerName=jenkins-25
 User=jenkins:jenkins
 UserNS=keep-id:uid=1000,gid=1000
-# Replace both paths with absolute paths beside podman-compose.yml before installation.
+# Replace /REPLACE paths with the deployment directory before installation.
 Volume=/REPLACE/jenkins-podman-image/jenkins_home:/var/jenkins_home:Z
 Volume=/REPLACE/jenkins-podman-image/plugins:/var/jenkins_home/plugins:Z
+Volume=/REPLACE/jenkins-podman-image/scripts/healthcheck.sh:/usr/local/bin/jenkins-healthcheck.sh:ro,Z
 PublishPort=0.0.0.0:8080:8080
-EnvironmentFile=%h/.config/jenkins/jenkins.env
+EnvironmentFile=/REPLACE/jenkins-podman-image/env.conf
+HealthCmd=/bin/sh /usr/local/bin/jenkins-healthcheck.sh
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=5m
+HealthOnFailure=kill
 NoNewPrivileges=true
 DropCapability=all
 
 [Service]
-Restart=on-failure
+Restart=always
 RestartSec=10
 TimeoutStartSec=300
 TimeoutStopSec=120

@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parent.parent
 INPUTS = ('Containerfile', 'env.conf.example', 'podman-compose.yml',
           'podman-compose.https.yml', 'deployment/https.properties.example',
           'deployment/README.offline.txt.in', 'scripts/reset-jenkins.py',
-          'deployment/offline/hudson.model.UpdateCenter.xml')
+          'deployment/offline/hudson.model.UpdateCenter.xml', 'scripts/healthcheck.sh',
+          'systemd/jenkins-healing.service', 'systemd/jenkins-healing.timer')
 
 
 def sha256(path):
@@ -114,6 +115,10 @@ def make_package(root, output_dir, image=None, platform='linux/amd64'):
         shutil.copyfile(root / 'deployment/https.properties.example', package / 'ssl/https.properties.example')
         (package / 'scripts').mkdir(mode=0o700)
         shutil.copyfile(root / 'scripts/reset-jenkins.py', package / 'scripts/reset-jenkins.py')
+        shutil.copyfile(root / 'scripts/healthcheck.sh', package / 'scripts/healthcheck.sh')
+        (package / 'systemd').mkdir(mode=0o700)
+        for name in ('jenkins-healing.service', 'jenkins-healing.timer'):
+            shutil.copyfile(root / 'systemd' / name, package / 'systemd' / name)
         shutil.copyfile(root / 'deployment/offline/hudson.model.UpdateCenter.xml', package / 'offline-update-center.xml')
         (package / 'env.conf.example').write_text(render_env(env_source, {
             'JENKINS_IMAGE': image,

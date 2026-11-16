@@ -6,6 +6,7 @@ Jenkins LTS를 JDK 25에서 실행하는 OCI 이미지와 폐쇄망 배포 패�
 - **jenkins:jenkins** 사용자, rootless Podman 기반
 - 이미지와 플러그인 설치 분리, 설정·Job·Agent·사용자 정보 영속 저장
 - 폐쇄망 실행과 선택적인 HTTPS 지원
+- 컨테이너 종료와 응답 검사 실패 시 자동 복구 지원
 
 ## 이미지 빌드
 
@@ -42,6 +43,8 @@ dist/jenkins-podman-jdk25.tar.sha256
 패키지에는 이미지, Compose 설정, `env.conf.example`, 빈 데이터·플러그인·SSL 폴더와 운영 안내 `README.txt`가 포함됩니다. 운영 데이터와 개인 인증서/키는 포함하지 않습니다. 내부망에서의 이미지 로드, 기동·종료, 설정 방법은 압축을 푼 뒤 `README.txt`를 따릅니다.
 
 운영 안내 원본은 [deployment/README.offline.txt.in](deployment/README.offline.txt.in), 검증 결과는 [docs/VALIDATION.md](docs/VALIDATION.md)에 있습니다.
+
+## 개발
 
 ---
 

@@ -1,0 +1,10 @@
+[Unit]
+Description=Restart only the running unhealthy Jenkins Compose container
+
+[Service]
+Type=oneshot
+# Leave the restarted container/conmon alive after this short-lived command exits.
+KillMode=process
+# systemd turns $$ into a literal $ for the exact-name regular expression.
+ExecStart=/usr/bin/podman restart --running --filter status=running --filter name=^jenkins-25$$ --filter label=io.tec-opensource.jenkins.healing=true --filter health=unhealthy --time=120
+TimeoutStartSec=180

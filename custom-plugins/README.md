@@ -6,3 +6,12 @@
 바이너리는 Git에서 제외합니다. 릴리스 아티팩트 저장소에 원본과 SHA-256을 보관하십시오.
 
 전체 플러그인 집합의 Core/의존성 및 업무 정책을 확인한 뒤 반입하십시오. 이 폴더의 파일은 이미지 빌드나 서버 시작 시 자동 설치되지 않습니다.
+
+의존성을 준비할 때는 대상 Jenkins와 같은 버전의 WAR를 지정합니다. 최소 플러그인 버전과 Core 버전이 맞지 않으면 준비를 중단합니다.
+
+```sh
+python3 scripts/bundle.py resolve --war /path/to/jenkins.war
+python3 scripts/bundle.py export --war /path/to/jenkins.war
+```
+
+생성된 `build/plugin-bundle/`의 전체 파일을 함께 반입합니다. `plugins.lock.json`에는 고정 버전과 SHA-256이 기록되며, 내보낼 때 실제 파일의 해시와 필수 의존성도 다시 확인합니다.
